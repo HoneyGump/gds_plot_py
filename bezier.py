@@ -31,6 +31,6 @@ def bezierCurve(w_wg = 0.5, l_bc = 100, w_bc = 127/2, w_etch = 3, tolerance = 0.
     else:
         return path1
 
-DEVICES.add(bezierCurve(1))
+DEVICES.add(bc(5, l_bc=30, w_bc=15))
 lib.write_gds('test_bc.gds')
 gdspy.LayoutViewer()
