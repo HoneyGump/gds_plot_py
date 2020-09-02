@@ -28,7 +28,7 @@ w_wg = 0.44 # the width of waveguide
 a =  0.29 # width of etched tooth
 b =  0.350 # width of remain tooth
 
-GC_theta = 23/180*np.pi
+GC_theta = 10/180*np.pi
 
 period = 30
 ##################################################################
@@ -60,8 +60,8 @@ while i < period:
         (0, 0),
         xp+a,
         inner_radius=xp,
-        initial_angle= -GC_theta-1,
-        final_angle= GC_theta+1,
+        initial_angle= -GC_theta,
+        final_angle= GC_theta,
         number_of_points=128,
         **ld_grating
     )
@@ -70,8 +70,8 @@ while i < period:
     xp += pitch
     i += 1
 
-inv = gdspy.boolean(gd, tooth, 'not', precision=1e-10, max_points=199, layer=0, datatype=1)
-# inv = gdspy.boolean(inv, tooth, 'or', precision=1e-10, max_points=199, layer=0, datatype=1)
+inv = gdspy.boolean(gd, rect, 'xor', precision=1e-10, max_points=199, layer=0, datatype=1)
+inv = gdspy.boolean(inv, tooth, 'or', precision=1e-10, max_points=199, layer=0, datatype=1)
 gc.add(inv)
 gc.add(gd)
 gc.add(tooth)

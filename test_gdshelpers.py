@@ -65,10 +65,10 @@ lib.write_gds("test_py.gds")
 
 
 cell = Cell('CELL')
-cell.add_to_layer(1, left_gc, left_wg, left_wg2, left_bend, spiral, right_bend, right_wg, right_coupler)  # blue
+# cell.add_to_layer(1, left_gc, left_wg, left_wg2, left_bend, spiral, right_bend, right_wg, right_coupler)  # blue
 cell.add_to_layer(2, buffer_not_device)  # blue
-cell.add_to_layer(3, buffer_device)  # blue
+# cell.add_to_layer(3, buffer_device)  # blue
 
-
-
-cell.save('chip.gds')
+# cell.show()
+# cell.start_viewer()
+cell.save('chip.gds',library='gdspy', grid_steps_per_micron=10000)
