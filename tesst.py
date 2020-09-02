@@ -4,16 +4,22 @@ from gdshelpers.parts.waveguide import Waveguide
 from gdshelpers.parts.coupler import GratingCoupler
 from gdshelpers.parts.resonator import RingResonator
 
-coupler = GratingCoupler.make_traditional_coupler_from_database([0,0], 1, 'sn330', 1550)
-coupler_shapely = coupler.get_shapely_object()
 
-# Do the manipulation
-buffered_coupler_shapely = coupler_shapely.buffer(2)
-gg = buffered_coupler_shapely.difference(coupler_shapely)
+left_coupler = GratingCoupler.make_traditional_coupler_from_database([0, 0], 1, 'sn330', 1550)
+wg1 = Waveguide.make_at_port(left_coupler.port)
+wg1.add_straight_segment(length=10)
+wg1.add_bend(-pi/2, radius=50)
+wg1.add_straight_segment(length=75)
 
-cell = Cell('CELL')
-cell.add_to_layer(1, buffered_coupler_shapely)
-cell.add_to_layer(2, coupler_shapely)
-cell.add_to_layer(3, gg)
+ring_res = RingResonator.make_at_port(wg1.current_port, gap=0.5, radius=30)
+
+wg2 = Waveguide.make_at_port(ring_res.port)
+wg2.add_straight_segment(length=75)
+wg2.add_bend(-pi/2, radius=50)
+wg2.add_straight_segment(length=10)
+right_coupler = GratingCoupler.make_traditional_coupler_from_database_at_port(wg2.current_port, 'sn330', 1550)
+
+cell = Cell('SIMPLE_DEVICE')
+cell.add_to_layer(1, left_coupler, wg1, ring_res, wg2, right_coupler)
 
 cell.save('test.gds')
