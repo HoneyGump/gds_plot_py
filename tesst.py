@@ -23,4 +23,6 @@ right_coupler = GratingCoupler.make_traditional_coupler_from_database_at_port(wg
 cell = Cell('SIMPLE_DEVICE')
 cell.add_to_layer(1, left_coupler, wg1, ring_res, wg2, right_coupler)
 
-cell.save('./layout/test2.gds')
+cell.show()
+
+# cell.save('./layout/test.gds')
