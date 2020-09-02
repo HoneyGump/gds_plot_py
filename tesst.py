@@ -11,7 +11,8 @@ wg1.add_straight_segment(length=10)
 wg1.add_bend(-pi/2, radius=70)
 wg1.add_straight_segment(length=75)
 
-ring_res = RingResonator.make_at_port(wg1.current_port, gap=0.5, radius=30)
+ring_res = RingResonator.make_at_port(wg1.current_port ,gap=(0.5, 4), radius=30,straight_feeding=True, draw_opposite_side_wg=True)
+
 
 wg2 = Waveguide.make_at_port(ring_res.port)
 wg2.add_straight_segment(length=75)
