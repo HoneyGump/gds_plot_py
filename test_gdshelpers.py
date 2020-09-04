@@ -8,6 +8,7 @@ from gdshelpers.parts.coupler import GratingCoupler
 from gdshelpers.geometry import geometric_union
 from gdshelpers.geometry import convert_to_layout_objs
 import gdspy
+from gdshelpers.helpers import positive_resist
 
 
 l_wg = 50
@@ -50,25 +51,30 @@ device = geometric_union([left_gc, left_wg, left_wg2, left_bend, spiral, right_b
 buffer_device = device.buffer(3)
 buffer_not_device = buffer_device.difference(device)
 
-geo1 = convert_to_layout_objs(buffer_device,library='gdspy')
-geo2 = convert_to_layout_objs(device,library='gdspy')
-inv = gdspy.boolean(geo1, geo2, "not")
+# geo1 = convert_to_layout_objs(buffer_device,library='gdspy')
+# geo2 = convert_to_layout_objs(device,library='gdspy')
+# inv = gdspy.boolean(geo1, geo2, "not")
+
 
 # STEP 1: 
-lib = gdspy.GdsLibrary(precision = 1e-10)
-
+# lib = gdspy.GdsLibrary(precision = 1e-10)
+# 
 # create a new cell to save 
-gg = lib.new_cell("GC")
+# gg = lib.new_cell("GC")
 
-gg.add(inv)
-lib.write_gds("test_py.gds")
+# gg.add(inv)
+# lib.write_gds("test_py.gds")
 
 
 cell = Cell('CELL')
 # cell.add_to_layer(1, left_gc, left_wg, left_wg2, left_bend, spiral, right_bend, right_wg, right_coupler)  # blue
-cell.add_to_layer(2, buffer_not_device)  # blue
+# cell.add_to_layer(2, buffer_not_device)  # blue
 # cell.add_to_layer(3, buffer_device)  # blue
 
 # cell.show()
 # cell.start_viewer()
-cell.save('chip.gds',library='gdspy', grid_steps_per_micron=10000)
+# cell.save('chip.gds',library='gdspy', grid_steps_per_micron=10000)
+
+test = positive_resist.convert_to_positive_resist([left_gc, left_wg, left_wg2, left_bend, spiral, right_bend, right_wg, right_coupler], 3, outer_resolution=1e-3)
+cell.add_to_layer(5, test)
+cell.save("./layout/test_co.gds")
