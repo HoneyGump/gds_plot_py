@@ -399,20 +399,6 @@ def Mark_crossmark(lib, w=20, l=300, layer=1, datatype=1):
     points = [(-w/2, l/2), (-w/2, -l/2), (w/2, -l/2), (w/2, l/2)]
     Poly1 = gdspy.Polygon(points, layer=layer, datatype=datatype)
     mark.add(Poly1)
-
-    points = [(-l/2, w/2), (l/2, w/2), (l/2, -w/2), (-l/2, -w/2)]
-    Poly1 = gdspy.Polygon(points, layer=layer, datatype=datatype)
-    mark.add(Poly1)
-    points = [(-w/2, l/2), (-w/2, -l/2), (w/2, -l/2), (w/2, l/2)]
-    Poly1 = gdspy.Polygon(points, layer=layer, datatype=datatype)
-    mark.add(Poly1)
-
-    points = [(-l/2, w/2), (l/2, w/2), (l/2, -w/2), (-l/2, -w/2)]
-    Poly1 = gdspy.Polygon(points, layer=layer, datatype=datatype)
-    mark.add(Poly1)
-    points = [(-w/2, l/2), (-w/2, -l/2), (w/2, -l/2), (w/2, l/2)]
-    Poly1 = gdspy.Polygon(points, layer=layer, datatype=datatype)
-    mark.add(Poly1)
     return mark
 
 if __name__ == '__main__':
