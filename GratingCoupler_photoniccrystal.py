@@ -15,7 +15,7 @@ radius_ring = 10
 lib = gdspy.GdsLibrary( precision=1e-10 )
 
 # create grating
-grating = Photonics_PDK.gratingCoupler_tradition(lib, a=0.23, D=0.150, d=0.665, period_num=29, w_gc=10, l_taper_a=500, l_grating=30, w_wg=0.5, w_etch=3 )
+grating = Photonics_PDK.gc_PC_uniform(lib, a=0.23, D=0.145, d=0.665, period_num=29, w_gc=10, l_taper_a=500, l_grating=30, w_wg=0.5, w_etch=3 )
 
 # create the cell: waveguide
 wg = lib.new_cell('wg')
@@ -48,23 +48,23 @@ devices = lib.new_cell('Devices')
 # assemble w 500 nm
 spacing = (0, -127)
 origin = (0, 0)
-devices.add(gdspy.CellArray(grating, col, row, (spacing [0], -spacing [1]), origin=origin, rotation=180))
+devices.add(gdspy.CellArray(grating, col, row, (spacing [0], spacing [1]), origin=origin))
 devices.add(gdspy.CellArray(wg, col, row, spacing, origin=origin))
-devices.add(gdspy.CellArray(grating, col, row, spacing , origin=(origin[0]+l_wg, origin[1]+0)))
+devices.add(gdspy.CellArray(grating, col, row, (spacing [0], -spacing [1]) , origin=(origin[0]+l_wg, origin[1]+0), rotation=180))
 
 # assemble w 10 um 
 spacing = (0, -127)
 origin = (1500, 0)
-devices.add(gdspy.CellArray(grating, col, row, (spacing [0], -spacing [1]), origin=origin, rotation=180))
+devices.add(gdspy.CellArray(grating, col, row, (spacing [0], spacing [1]), origin=origin))
 devices.add(gdspy.CellArray(gc_sphere, col, row, spacing, origin=origin))
-devices.add(gdspy.CellArray(grating, col, row, spacing, origin=(origin[0]+l_taper_a*2+l_gc_sphere, origin[1]+0)))
+devices.add(gdspy.CellArray(grating, col, row, (spacing [0], -spacing [1]), origin=(origin[0]+l_taper_a*2+l_gc_sphere, origin[1]+0), rotation=180))
 
 # assemble ring
 spacing = (0, -127)
 origin = (4000, 0)
-devices.add(gdspy.CellArray(grating, col, row, (spacing [0], -spacing [1]), origin=origin, rotation=180))
+devices.add(gdspy.CellArray(grating, col, row, (spacing [0], spacing [1]), origin=origin))
 devices.add(gdspy.CellArray(ring, col, row, spacing, origin=origin))
-devices.add(gdspy.CellArray(grating, col, row, spacing, origin=(origin[0]+l_wg, origin[1]+0)))
+devices.add(gdspy.CellArray(grating, col, row, (spacing [0], -spacing [1]), origin=(origin[0]+l_wg, origin[1]+0), rotation=180))
 
 
 # Save the library in a file called 'first.gds'.

@@ -5,7 +5,7 @@ import scipy.io as scio
 # Load some data about period 
 # we get the diameter of hole: D
 # we get the peorid: d_goal
-dir_file = './Peorid_Diameter_min80_all_SiO2.mat'
+dir_file = './data_apodized/Peorid_Diameter_min80_all_SiO2.mat'
 temp = scio.loadmat(dir_file)
 
 # STEP 1:
