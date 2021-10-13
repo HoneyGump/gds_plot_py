@@ -3,6 +3,10 @@ import gdspy
 
 ld_fulletch = {"layer": 1, "datatype": 1}
 ld_grating = {"layer": 1, "datatype": 3}
+ld_heater = {"layer": 2, "datatype": 1}
+ld_wire = {"layer": 3, "datatype": 1}
+
+info_wg = {"w_wg":0.5, "w_etch": 3}
 
 def gc_rect(cell, pa, w_gc=10, w_wg=0.5, w_etch=3):
     """
@@ -415,7 +419,6 @@ def get_ring(cell, origin, w, l, gap, radius, pos_wg, layer, datatype):
     cell.add(poly)
     return cell
 
-
 def get_Ring(layer, datatype):
     w_wg = 0.5
     w_cld = 6.5
@@ -439,6 +442,37 @@ def Path2WG(pts, w_wg, w_cld, layer, datatype):
     path = gdspy.boolean(path1, path2, 'xor', layer=layer, datatype=datatype)
     return path
 
+# define  heater
+def gene_heater(lib, cellName='Heater', w_heater=3, l_heater=200, w_CT=10, w_wire=20, w_wg=0.45, w_etch=3):
+    # l_heater2 = l_heater - 100
+    # w_heater = 3
+    # w_CT = 10
+    # w_wire = w_CT*2
+    # w_wg = 0.45
+    # w_etch = 3
+    l_port = 20
+    l_Heater = l_heater + 2*l_port
+    cell = lib.new_cell(cellName)
+    # add middle long rect
+    heater = gdspy.Rectangle((l_port, w_heater/2), (l_port+l_heater, -w_heater/2), **ld_heater)
+    cell.add(heater)
+    # add left rect and wire
+    heater = gdspy.Rectangle((l_port+-w_CT/2, w_CT/2), (l_port+w_CT/2, -w_CT/2), **ld_heater)
+    cell.add(heater)
+    heater = gdspy.Rectangle((l_port+-w_wire/2, w_wire/2), (l_port+w_wire/2, -w_wire/2), **ld_wire)
+    cell.add(heater)
+    # add right rect and wire
+    heater = gdspy.Rectangle((l_port+l_heater-w_CT/2, w_CT/2), (l_port+l_heater+w_CT/2, -w_CT/2), **ld_heater)
+    cell.add(heater)
+    heater = gdspy.Rectangle((l_port+l_heater-w_wire/2, w_wire/2), (l_port+l_heater+w_wire/2, -w_wire/2), **ld_wire)
+    cell.add(heater)
+    # add WG
+    Rect = gdspy.Rectangle((0, w_wg/2+w_etch), (l_Heater, w_wg/2), **ld_fulletch)
+    cell.add(Rect)
+    Rect = gdspy.Rectangle((0, -w_wg/2), (l_Heater, -w_wg/2-w_etch), **ld_fulletch)
+    cell.add(Rect)
+
+    return cell
 
 class Ring_4port(object):
     def __init__(self, layer, datatype):
@@ -470,11 +504,10 @@ class Ring_4port(object):
 
             
 
-
-
 if __name__ == '__main__':
     lib = gdspy.GdsLibrary( precision=1e-10)
-    # cell = lib.new_cell('Devices')
+    gene_heater(lib, 'Heater')
+    gdspy.LayoutViewer()
     # test = Ring_4port(1,1)
     # cell.add(test.place_ring())
     # print(test.port)
