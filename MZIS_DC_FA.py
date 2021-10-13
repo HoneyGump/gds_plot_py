@@ -103,5 +103,6 @@ DEVICES.add(gdspy.CellReference(cell, (x_heater2, pos_y_heater-spacing_FA/2)))
 
 # cell = GC.gc_PC_uniform(lib,filename0='UGC_', D=0.165, d=0.690, w_wg=0.5, w_gc=12)
 # DEVICES.add(gdspy.CellArray(cell, 1, 4, (1, -spacing_FA), (0, spacing_FA)))
-
-lib.write_gds("DC2_L"+str(l_DC)+".gds")
+name_gds = "DC2_L"+str(l_DC)+".gds"
+lib.write_gds(name_gds)
+print(name_gds)

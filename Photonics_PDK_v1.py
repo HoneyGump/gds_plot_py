@@ -443,7 +443,7 @@ def Path2WG(pts, w_wg, w_cld, layer, datatype):
     return path
 
 # define  heater
-def gene_heater(lib, cellName='Heater', w_heater=3, l_heater=200, w_CT=10, w_wire=20, w_wg=0.45, w_etch=3):
+def gene_heater(lib, cellName='Heater', w_heater=3, l_heater=200, w_CT=10, w_wire=20, w_wg=0.5, w_etch=3):
     # l_heater2 = l_heater - 100
     # w_heater = 3
     # w_CT = 10
@@ -503,7 +503,7 @@ class Ring_4port(object):
         return cell
 
 # define Single Ring
-def gene_ring(lib, cellName='Ring', radius_ring=10, gap=0.1, l_wg=40, w_wg=0.45):
+def gene_ring(lib, cellName='Ring', radius_ring=10, gap=0.1, l_wg=40, w_wg=0.5):
     ring = lib.new_cell(cellName+str(int(radius_ring))+'_gap'+str(int(gap*1000)))
     points = [(0, -w_wg/2), (l_wg, -w_wg/2), (l_wg, w_wg/2), (0, w_wg/2)]
     poly = gdspy.Polygon(points)
@@ -518,7 +518,7 @@ def gene_ring(lib, cellName='Ring', radius_ring=10, gap=0.1, l_wg=40, w_wg=0.45)
     return ring
 
 # define direction coupler
-def DC(lib, cellName='DC', l_DC=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=0.5):
+def DC(lib, cellName='DC', l_Coupler=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=0.5):
     l_PortIn = 10
     cell = lib.new_cell(cellName)
     
@@ -527,7 +527,7 @@ def DC(lib, cellName='DC', l_DC=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=
     path_dc.turn(radius_bend,'r')
     path_dc.segment(l_ver)
     path_dc.turn(radius_bend,'l')
-    path_dc.segment(l_DC)
+    path_dc.segment(l_Coupler)
     path_dc.turn(radius_bend,'l')
     path_dc.segment(l_ver)
     path_dc.turn(radius_bend,'r')
@@ -539,7 +539,7 @@ def DC(lib, cellName='DC', l_DC=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=
     path_dc.turn(radius_bend,'l')
     path_dc.segment(l_ver)
     path_dc.turn(radius_bend,'r')
-    path_dc.segment(l_DC)
+    path_dc.segment(l_Coupler)
     path_dc.turn(radius_bend,'r')
     path_dc.segment(l_ver)
     path_dc.turn(radius_bend,'l')
@@ -549,9 +549,9 @@ def DC(lib, cellName='DC', l_DC=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=
     return cell
 
 # define direction coupler2
-def DC2(lib, cellName='DC', l_DC=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=0.5, w_etch=3 ):
-    cell1 = DC(lib, 'temp1_'+cellName, l_DC, spacing, radius_bend, l_ver, w_wg)
-    cell2 = DC(lib, 'temp2_'+cellName, l_DC, spacing, radius_bend, l_ver, w_wg+2*w_etch)
+def DC2(lib, cellName='DC', l_Coupler=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg=0.5, w_etch=3 ):
+    cell1 = DC(lib, 'temp1_'+cellName, l_Coupler, spacing, radius_bend, l_ver, w_wg)
+    cell2 = DC(lib, 'temp2_'+cellName, l_Coupler, spacing, radius_bend, l_ver, w_wg+2*w_etch)
     lib.remove(cell1)
     lib.remove(cell2)
     cell = lib.new_cell(cellName)
@@ -559,11 +559,38 @@ def DC2(lib, cellName='DC', l_DC=20, spacing=0.6, radius_bend=10, l_ver=10, w_wg
     cell.add(poly)
     return cell
 
+# add MZM based on DC
+def MZM_DC(lib, cell_Heater, cell_DC, cellName='MZM_DC', w_wg=0.5, N=2, w_etch_DC=3 ):
+    bc = cell_DC.get_bounding_box()
+    l_DC = bc[1][0] - bc[0][0]
+    S_Port_DC = bc[1][1] - bc[0][1] - 2*w_etch_DC - w_wg
+    bc = cell_Heater.get_bounding_box()
+    l_Heater = bc[1][0] - bc[0][0]
+    cell = lib.new_cell(cellName)
+    cell.add(gdspy.CellArray(cell_DC, N+1, 1, (l_Heater+l_DC, 0)))
+    cell.add(gdspy.CellArray(cell_Heater, N, 1, (l_Heater+l_DC, 0), (l_DC, 0)))
+    for i in range(N):
+        wg = wg_line(w_wg, w_etch_DC, ((l_DC+l_Heater)*i+l_DC, -S_Port_DC), l_Heater)
+        cell.add(wg)
+    return cell
+
+# define the Waveguide
+def wg_line(w_wg, w_etch, origin, l_wg):
+    # add WG
+    Rect1 = gdspy.Rectangle((origin[0], origin[1]+w_wg/2+w_etch), (origin[0]+l_wg, origin[1]+w_wg/2), **ld_fulletch)
+    Rect2 = gdspy.Rectangle((origin[0], origin[1]-w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2-w_etch), **ld_fulletch)
+    return [Rect1, Rect2]
+
+# define the MZM based on MMI
+def MZM_MMI():
+    pass
+
 if __name__ == '__main__':
     lib = gdspy.GdsLibrary( precision=1e-10)
-    DC2(lib, 'Ring')
+    cell_DC = DC2(lib, 'Ring', w_wg=0.5)
+    cell_Heater = gene_heater(lib, 'Heater')
+    MZM_DC(lib, cell_Heater, cell_DC)
     gdspy.LayoutViewer()
-    # test = Ring_4port(1,1)
-    # cell.add(test.place_ring())
-    # print(test.port)
-    lib.write_gds('test_ring.gds')
+    # name_gds = "test_MZM_DC.gds"
+    # lib.write_gds(name_gds)
+    # print(name_gds)
