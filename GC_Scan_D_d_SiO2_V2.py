@@ -10,7 +10,6 @@ GC_scan = lib.new_cell("GC_scan")
 kwargs = {'w_gc': 12, 'w_wg': 0.510}
 layer_Mark = {"layer": 0, "datatype": 0}
 ld_fulletch = {"layer": 1, "datatype": 1}
-ld_grating = {"layer": 1, "datatype": 1}
 
 posi_end = (0, 0)
 text = 'D 165'

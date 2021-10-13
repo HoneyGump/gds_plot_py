@@ -5,17 +5,14 @@ import Photonics_PDK_v1 as GC
 
 lib = gdspy.GdsLibrary( precision=1e-10)
 
-# Geometry must be placed in cells.
-DEVICES = lib.new_cell("MZMs_DC_FA")
-
 ld_fulletch = {"layer": 1, "datatype": 1}
 ld_grating = {"layer": 1, "datatype": 1}
 
 w_wg = 0.5
-l_PortIn = 100
+l_PortIn = 400
 l_PortOut = l_PortIn
-l_DC = 10
-pos_y_heater = 200
+l_DC = 14
+pos_y_heater = 150
 
 gap = 0.2
 radius_bend = 10
@@ -24,6 +21,9 @@ spacing_FA = 127
 l_MZIs = l_heater*2 + 3*l_DC + 8*radius_bend
 spacing_wg = 100
 l_ver = pos_y_heater - radius_bend*2 - gap/2 - w_wg/2
+
+# Geometry must be placed in cells.
+DEVICES = lib.new_cell("MZMs_DC_L"+str(l_DC)+"_FA")
 
 def build_DC(w, laayer=1, datatype=1):
     path_dc = gdspy.Path(w, (0,0))
@@ -101,7 +101,7 @@ DEVICES.add(gdspy.CellReference(cell, (x_heater1, pos_y_heater-spacing_FA/2)))
 DEVICES.add(gdspy.CellReference(cell, (x_heater2, pos_y_heater-spacing_FA/2)))
 
 
-cell = GC.gc_PC_uniform(lib,filename0='UGC_', D=0.165, d=0.690, w_wg=0.5, w_gc=12)
-DEVICES.add(gdspy.CellArray(cell, 1, 4, (1, -spacing_FA), (0, spacing_FA)))
+# cell = GC.gc_PC_uniform(lib,filename0='UGC_', D=0.165, d=0.690, w_wg=0.5, w_gc=12)
+# DEVICES.add(gdspy.CellArray(cell, 1, 4, (1, -spacing_FA), (0, spacing_FA)))
 
-lib.write_gds("DC2.gds")
+lib.write_gds("DC2_L"+str(l_DC)+".gds")

@@ -2,7 +2,7 @@ import numpy as np
 import gdspy
 
 ld_fulletch = {"layer": 1, "datatype": 1}
-ld_grating = {"layer": 1, "datatype": 1}
+ld_grating = {"layer": 1, "datatype": 3}
 
 def gc_rect(cell, pa, w_gc=10, w_wg=0.5, w_etch=3):
     """
@@ -81,7 +81,7 @@ def gc_FA(cell, gc, origin=(0,0), w_gc=10, w_wg=0.5, w_etch=3):
     cell.add(gdspy.CellReference(gc, origin))
     cell.add(gdspy.CellReference(gc, (origin[0],-127)))
     
-    l_portIn = 40
+    l_portIn = 400
     l_portOut = l_portIn
     path_connect = gdspy.Path(w_wg)
     path_connect.segment(l_portIn)
@@ -134,7 +134,7 @@ def readParameters(filename):
     data.append(data[-1])
     return data
 
-def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_grating=30, w_gc=10, w_wg=0.5, w_etch=3):
+def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_grating=30, w_gc=10, w_wg=0.5, w_etch=3, D_max=0.18):
     a = 0.23
     w_gc = w_gc
     num_y = np.floor(w_gc/(a*np.sqrt(3)))
@@ -151,6 +151,9 @@ def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_gr
         
         # create the cell for reference
         D_temp = D[(ii,0)]
+        D_temp = np.around(D_temp, 4)
+        if D_temp > D_max:
+            D_temp = D_max
         name_cell = "D"+str(int(D_temp*1e3))
         if name_cell not in lib.cells:
             circles = lib.new_cell(name_cell)
@@ -182,14 +185,11 @@ def gc_PC_uniform(lib, filename0 ="GC", a=0.23, D=0.150, d=0.665, period_num=29,
         d is the peorid of the gratings.
         """
 
-    ld_fulletch = {"layer": 1, "datatype": 1}
-    ld_grating = {"layer": 1, "datatype": 1}
-
     # create the main body of phtonic crystal grating coupler
     d_all = np.ones(period_num)*d
     D_all = np.ones(period_num)*D
     # name the cell that include the grating
-    filename = filename0 + "_a"+str(int(a*1e3)) +"_D"+str(int(D*1e3)) +"_d"+str(int(d*1e3)) +"_wg"+ str(int(w_wg*1000))
+    filename = filename0 + "_a"+str(int(a*1e3)) +"_D"+str(int(D*1e3)) +"_d"+str(np.around(d*1e3,0).astype(int)) +"_wg"+ str(int(w_wg*1000))
     grating = lib.new_cell(filename)
 
     num_y = np.floor(w_gc/(a*np.sqrt(3)))
@@ -241,7 +241,6 @@ def gc_PC_uniform(lib, filename0 ="GC", a=0.23, D=0.150, d=0.665, period_num=29,
 
 def coulper_coupler(lib, grating, w_wg=0.5, w_etch=3, l_wg=100):
     GC = lib.new_cell("GC")
-    ld_fulletch = {"layer": 1, "datatype": 1}
     # create the cell: waveguides
     wg = lib.new_cell('waveguides'+str(int(w_wg*1000)))
     points = [(0, w_wg/2), (l_wg, w_wg/2), (l_wg, w_wg/2+w_etch), (0, w_wg/2+w_etch)]
@@ -286,14 +285,14 @@ def Scan_d(lib, Cell, D, d, cellname_prefix='GC', step=0.005, n=(3,4), origin=(0
         if type_GC == 'line':
             GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_Line"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_trench(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
-    temp_complement=  np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
+def Scan_trench(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+    temp_complement = offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = np.array(para)
     temp_para = np.array(para)
@@ -319,8 +318,8 @@ def Scan_trench(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, n=(3
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_tooth(lib, Cell, para, cellname_prefix='GC_Apodized',step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
-    temp_complement=  np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
+def Scan_tooth(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+    temp_complement =  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = np.array(para)
     temp_para = np.array(para)
@@ -344,8 +343,8 @@ def Scan_tooth(lib, Cell, para, cellname_prefix='GC_Apodized',step=0.005, n=(3,4
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='GC_PC_APodized', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA'):
-    temp_complement=  np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
+def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='GC_PC_APodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA'):
+    temp_complement=  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = d
     # print(para)
@@ -362,15 +361,15 @@ def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='GC_PC_APodized', step=0.005, 
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='GC_PC_APodized', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA'):
-    temp_complement=  np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
+def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='GC_PC_APodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA',D_max=0.18):
+    temp_complement=  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = D
     # print(para)
     for complement in temp_complement:
         temp_para = para + complement
         # print(temp_para)
-        cell = gc_PC_apodized(lib, cellname_prefix+'_D' + str(round(complement*1e3)), temp_para, d, w_wg=w_wg,  w_gc=w_gc)
+        cell = gc_PC_apodized(lib, cellname_prefix+'_D' + str(int(round(complement*1e3))), temp_para, d, w_wg=w_wg,  w_gc=w_gc, D_max=D_max)
         if type_GC == 'line':
             GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
         if type_GC == 'FA':
@@ -401,10 +400,82 @@ def Mark_crossmark(lib, w=20, l=300, layer=1, datatype=1):
     mark.add(Poly1)
     return mark
 
+def get_ring(cell, origin, w, l, gap, radius, pos_wg, layer, datatype):
+    pos_x = 0
+    pos_y = 0
+    pts = [(pos_x, pos_y+w/2), (pos_x+l, pos_y+w/2), (pos_x+l, pos_y-w/2), (pos_x, pos_y-w/2)]
+    poly = gdspy.Polygon(pts, layer=layer, datatype=datatype)
+    cell.add(poly)
+    ring = gdspy.Round(center=origin, radius=radius+w/2, inner_radius=radius-w/2, layer=layer, datatype=datatype)
+    cell.add(ring)
+    pos_x = 0
+    pos_y = pos_wg
+    pts = [(pos_x, pos_y+w/2), (pos_x+l, pos_y+w/2), (pos_x+l, pos_y-w/2), (pos_x, pos_y-w/2)]
+    poly = gdspy.Polygon(pts, layer=layer, datatype=datatype)
+    cell.add(poly)
+    return cell
+
+
+def get_Ring(layer, datatype):
+    w_wg = 0.5
+    w_cld = 6.5
+    radius = 1000
+    l = 2*radius
+    gap = 0.1
+    origin = (l/2, -radius-gap-w_wg)
+    pos_wg = -(radius*2 + gap*2 + 2*w_wg)
+    lib = gdspy.GdsLibrary( precision=1e-10)
+    cell1 = lib.new_cell('Devices1')
+    cell2 = lib.new_cell('Devices2')
+    cell = lib.new_cell('Ring')
+    get_ring(cell1, origin=origin, w=w_wg, l=l, radius=radius, gap=gap, pos_wg=pos_wg, layer=1, datatype=1)
+    get_ring(cell2, origin=origin, w=w_cld, l=l, radius=radius, gap=gap, pos_wg=pos_wg, layer=1, datatype=1)
+    cell.add(gdspy.boolean(gdspy.CellReference(cell1), gdspy.CellReference(cell2), 'xor', layer=layer, datatype=datatype))
+    return cell
+
+def Path2WG(pts, w_wg, w_cld, layer, datatype):
+    path1 = gdspy.FlexPath(pts, w_wg, corners='circular bend', bend_radius=10)
+    path2 = gdspy.FlexPath(pts, w_cld, corners='circular bend', bend_radius=10)
+    path = gdspy.boolean(path1, path2, 'xor', layer=layer, datatype=datatype)
+    return path
+
+
+class Ring_4port(object):
+    def __init__(self, layer, datatype):
+        self.layer = layer
+        self.datatype= datatype
+
+    def place_ring(self, l):
+        w_wg = 0.5
+        w_cld = 6.5
+        radius = 1000
+        # l = 2*radius
+        gap = 0.1
+        origin = (l/2, -radius-gap-w_wg)
+        pos_wg = -(radius*2 + gap*2 + 2*w_wg)
+        lib = gdspy.GdsLibrary( precision=1e-10)
+        cell1 = lib.new_cell('Devices1')
+        cell2 = lib.new_cell('Devices2')
+        cell = lib.new_cell('Ring')
+        get_ring(cell1, origin=origin, w=w_wg, l=l, radius=radius, gap=gap, pos_wg=pos_wg, layer=1, datatype=1)
+        get_ring(cell2, origin=origin, w=w_cld, l=l, radius=radius, gap=gap, pos_wg=pos_wg, layer=1, datatype=1)
+        cell.add(gdspy.boolean(gdspy.CellReference(cell1), gdspy.CellReference(cell2), 'xor', layer=self.layer, datatype=self.datatype))
+        w = 3
+        heater = gdspy.Round(origin, radius+w/2, radius-w/2, 135*np.pi/180, 225*np.pi/180, layer=2, datatype=1)
+        cell.add(heater)
+        heater = gdspy.Round(origin, radius+w/2, radius-w/2, -45*np.pi/180, 45*np.pi/180, layer=2, datatype=1)
+        cell.add(heater)
+        self.port = [(0,0), (0, pos_wg), (l, 0), (l, pos_wg)]
+        return cell
+
+            
+
+
+
 if __name__ == '__main__':
     lib = gdspy.GdsLibrary( precision=1e-10)
-    mark = Mark_crossmark(lib)
-    cell = lib.new_cell('Devices')
-    refe = gdspy.CellArray(mark, 2, 2, [1000, 1000], (-500, 500))
-    cell.add(refe)
-    lib.write_gds('test_mark2.gds')
+    # cell = lib.new_cell('Devices')
+    # test = Ring_4port(1,1)
+    # cell.add(test.place_ring())
+    # print(test.port)
+    # lib.write_gds('test_ring.gds')
