@@ -502,11 +502,25 @@ class Ring_4port(object):
         self.port = [(0,0), (0, pos_wg), (l, 0), (l, pos_wg)]
         return cell
 
+# define Single Ring
+def gene_ring(lib, cellName='Ring', radius_ring=10, gap=0.1, l_wg=40, w_wg=0.45):
+    ring = lib.new_cell(cellName+str(int(radius_ring))+'_gap'+str(int(gap*1000)))
+    points = [(0, -w_wg/2), (l_wg, -w_wg/2), (l_wg, w_wg/2), (0, w_wg/2)]
+    poly = gdspy.Polygon(points)
+    arc = gdspy.Round(
+        (l_wg/2, -gap-w_wg-radius_ring),
+        radius_ring+w_wg/2,
+        inner_radius=radius_ring-w_wg/2 ,
+        tolerance=0.001,
+    )
+    convert_to_positive_resist(ring, [poly, arc], buffer_radius=3)
+
+    return ring
             
 
 if __name__ == '__main__':
     lib = gdspy.GdsLibrary( precision=1e-10)
-    gene_heater(lib, 'Heater')
+    gene_ring(lib, 'Ring')
     gdspy.LayoutViewer()
     # test = Ring_4port(1,1)
     # cell.add(test.place_ring())
