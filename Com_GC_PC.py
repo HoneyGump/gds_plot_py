@@ -324,8 +324,8 @@ d = temp['d_goal']*1e6
 D = np.reshape(D, -1)
 d = np.reshape(d, -1)
 
-cell = gc_focusing_PC_apodized_P(lib, D, d, "AGC_PC_SiO2", period_num=4)
+cell = gc_focusing_PC(lib)
 Die.add(gdspy.CellReference(cell))
 
 # gdspy.LayoutViewer(lib, cell,depth=3)
-lib.write_gds('Com_GC_PC2.gds')
+lib.write_gds('Com_GC.gds')

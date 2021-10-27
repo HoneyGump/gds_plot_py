@@ -1,6 +1,7 @@
 import numpy as np
 import gdspy
 
+layer_Mark = {"layer": 0, "datatype": 0}
 ld_fulletch = {"layer": 1, "datatype": 1}
 ld_grating = {"layer": 1, "datatype": 3}
 ld_heater = {"layer": 2, "datatype": 1}
@@ -80,6 +81,140 @@ def gc_focusing(lib, cellname, pa, xp=22, theta=25, w_gc=10, w_wg=0.5, w_etch=3)
     poly = gdspy.Polygon(points, **ld_fulletch).mirror((0,0), (1,0))
     cell.add(poly)
     return cell
+
+def gc_focusing_PC(lib, filename0 ="GC", xp=14, theta=25, a=0.23, D=0.150, d=0.665, period_num=29, w_wg=0.5, w_etch=3):
+    """
+    cell: cell in Gdspy \n
+    pa: parameters for grating coupler \n
+    xp: the start position of pa \n
+    theta: the angle of GC \n
+    w_gc: width of grating coupler \n
+    w_wg: width of waveguide\n
+    w_etch: width of etch
+    """
+    # xp is the length of taper
+    GC_theta = (theta+3)/180*np.pi
+    GC_theta2 = theta/180*np.pi
+    i = 0
+    D_hole = 0.165
+    a_hole = a
+
+    # create the main body of phtonic crystal grating coupler
+    d_all = np.ones(period_num)*d
+    D_all = np.ones(period_num)*D
+    # name the cell that include the grating
+    filename = filename0 + "_a"+str(int(a*1e3)) +"_D"+str(int(D*1e3)) +"_d"+str(np.around(d*1e3,0).astype(int)) +"_wg"+ str(int(w_wg*1000))
+    grating = lib.new_cell(filename)
+    
+    for ii in range(period_num):
+        # this is for a variable period
+        if ii == 0:
+            x_start = -xp
+        else:
+            x_start += -d_all[ii]
+        
+        # create the cell for reference
+        D_temp = D_all[ii]
+        name_cell = "D"+str(int(D_temp*1e3))
+        if name_cell not in lib.cells:
+            circles = lib.new_cell(name_cell)
+            circle = gdspy.Round((0, 0), D_temp/2, tolerance=0.0001, **ld_grating)
+            circles.add(circle)
+        else:
+            Cell_all = lib.cells
+            circles = Cell_all[name_cell]
+        
+        theta_delta = (a_hole*np.sqrt(3))/abs(x_start)
+        num_y = np.floor(GC_theta2/theta_delta)*2
+        if num_y % 2 == 0:
+            num_y += 1
+
+        # create the 3 column of hole
+        for x_index in range(3):
+            if x_index == 1:
+                num_y = num_y + 1
+            for y_index in range(int(num_y)):
+                grating.add(gdspy.CellReference(circles,
+                ((x_start + x_index*a/2)*np.cos(theta_delta*(y_index-(num_y - 1)/2)), (x_start + x_index*a/2)*np.sin(theta_delta*(y_index-(num_y - 1)/2)))))
+            if x_index == 1:
+                num_y = num_y - 1
+            
+    xp = abs(x_start)
+    GC_theta = GC_theta2
+    points = [(0, w_wg/2), (-xp*np.cos(GC_theta), xp*np.sin(GC_theta)), (-xp*np.cos(GC_theta), xp*np.sin(GC_theta) + w_etch), (0, w_wg/2 + w_etch)]
+    poly = gdspy.Polygon(points, **ld_fulletch)
+    grating.add(poly)
+
+    poly = gdspy.Polygon(points, **ld_fulletch).mirror((0,0), (1,0))
+    grating.add(poly)
+    return grating
+
+def gc_focusing_PC_apodized(lib, D_all, d_all, filename0 ="FAGC", xp=14, theta=25, a=0.23, period_num=29, w_wg=0.5, w_etch=3):
+    """
+    cell: cell in Gdspy \n
+    pa: parameters for grating coupler \n
+    xp: the start position of pa \n
+    theta: the angle of GC \n
+    w_gc: width of grating coupler \n
+    w_wg: width of waveguide\n
+    w_etch: width of etch
+    """
+    # xp is the length of taper
+    GC_theta = (theta+3)/180*np.pi
+    GC_theta2 = theta/180*np.pi
+    i = 0
+    D_hole = 0.165
+    a_hole = a
+
+    # create the main body of phtonic crystal grating coupler
+    # d_all = np.ones(period_num)*d
+    # D_all = np.ones(period_num)*D
+    # name the cell that include the grating
+    # filename = filename0 + "_a"+str(int(a*1e3)) +"_D"+str(int(D*1e3)) +"_d"+str(np.around(d*1e3,0).astype(int)) +"_wg"+ str(int(w_wg*1000)/)
+    grating = lib.new_cell(filename0)
+    
+    for ii in range(period_num):
+        # this is for a variable period
+        if ii == 0:
+            x_start = -xp
+        else:
+            x_start += -d_all[ii]
+        
+        # create the cell for reference
+        D_temp = D_all[ii]
+        name_cell = "D"+str(int(D_temp*1e3))
+        if name_cell not in lib.cells:
+            circles = lib.new_cell(name_cell)
+            circle = gdspy.Round((0, 0), D_temp/2, tolerance=0.0001, **ld_grating)
+            circles.add(circle)
+        else:
+            Cell_all = lib.cells
+            circles = Cell_all[name_cell]
+        
+        theta_delta = (a_hole*np.sqrt(3))/abs(x_start)
+        num_y = np.floor(GC_theta2/theta_delta)*2
+        if num_y % 2 == 0:
+            num_y += 1
+
+        # create the 3 column of hole
+        for x_index in range(3):
+            if x_index == 1:
+                num_y = num_y + 1
+            for y_index in range(int(num_y)):
+                grating.add(gdspy.CellReference(circles,
+                ((x_start + x_index*a/2)*np.cos(theta_delta*(y_index-(num_y - 1)/2)), (x_start + x_index*a/2)*np.sin(theta_delta*(y_index-(num_y - 1)/2)))))
+            if x_index == 1:
+                num_y = num_y - 1
+            
+    xp = abs(x_start)
+    GC_theta = GC_theta2
+    points = [(0, w_wg/2), (-xp*np.cos(GC_theta), xp*np.sin(GC_theta)), (-xp*np.cos(GC_theta), xp*np.sin(GC_theta) + w_etch), (0, w_wg/2 + w_etch)]
+    poly = gdspy.Polygon(points, **ld_fulletch)
+    grating.add(poly)
+
+    poly = gdspy.Polygon(points, **ld_fulletch).mirror((0,0), (1,0))
+    grating.add(poly)
+    return grating
 
 def gc_FA(cell, gc, origin=(0,0), w_gc=10, w_wg=0.5, w_etch=3):
     cell.add(gdspy.CellReference(gc, origin))
@@ -183,7 +318,7 @@ def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_gr
     grating.add(poly)
     return grating
 
-def gc_PC_uniform(lib, filename0 ="GC", a=0.23, D=0.150, d=0.665, period_num=29, w_gc=10, l_taper_a=500, l_grating=30, w_wg=0.5, w_etch=3 ):
+def gc_PC_uniform(lib, filename0 ="UGC", a=0.23, D=0.150, d=0.665, period_num=29, w_gc=10, l_taper_a=500, l_grating=30, w_wg=0.5, w_etch=3 ):
     """ a is the length of the lattice \n
         D is the diameter of the hole \n
         d is the peorid of the gratings.
@@ -281,7 +416,7 @@ def convert_to_positive_resist(cell, parts, buffer_radius=3):
     diff = gdspy.boolean(diff, cut, 'not', layer=1, datatype=1)
     cell.add(diff)
 
-def Scan_d(lib, Cell, D, d, cellname_prefix='GC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_d(lib, Cell, D, d, cellname_prefix='UGC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
     temp_d =  np.linspace(d-step*n[0], d+step*n[1], n[0]+n[1]+1)
     pos_y = 0
     for d in temp_d:
@@ -295,7 +430,7 @@ def Scan_d(lib, Cell, D, d, cellname_prefix='GC', step=0.005, n=(3,4), origin=(0
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_trench(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_trench(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
     temp_complement = offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = np.array(para)
@@ -322,7 +457,7 @@ def Scan_trench(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, offs
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_tooth(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_tooth(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
     temp_complement =  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = np.array(para)
@@ -347,7 +482,7 @@ def Scan_tooth(lib, Cell, para, cellname_prefix='GC_Apodized', step=0.005, offse
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='GC_PC_APodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA'):
+def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='AGC_PC', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA'):
     temp_complement=  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = d
@@ -365,7 +500,7 @@ def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='GC_PC_APodized', step=0.005, 
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='GC_PC_APodized', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA',D_max=0.18):
+def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='AGC_PC', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA',D_max=0.18):
     temp_complement=  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = D
@@ -392,6 +527,34 @@ def Scan_ltaper_focu(lib, Cell, para, l_taper, cellname_prefix='GC_foucusing', s
         Cell.add(gdspy.CellReference(GC_line, (origin[0]-500, origin[1]+space-y_start)))
         space += -100
     posi_end = (origin[0]+0, origin[1]+space-200)
+    return posi_end
+
+def Scan_ltaper_UFocu(lib, Cell, D, d, xp, cellname_prefix='GC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+    temp =  np.linspace(xp-step*n[0], xp+step*n[1], n[0]+n[1]+1)
+    pos_y = 0
+    for xp0 in temp:
+        cell = gc_focusing_PC(lib, cellname_prefix+'_Xp'+str(round(xp0)), xp0, D=D, d=d, w_wg=w_wg)
+        if type_GC == 'line':
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+        if type_GC == 'FA':
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+        Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
+        pos_y += -space
+    posi_end = (origin[0]+0, origin[1]+pos_y-200)
+    return posi_end
+
+def Scan_ltaper_AFocu(lib, Cell, D_all, d_all, xp, cellname_prefix='FAGC_PC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+    temp =  np.linspace(xp-step*n[0], xp+step*n[1], n[0]+n[1]+1)
+    pos_y = 0
+    for xp0 in temp:
+        cell = gc_focusing_PC_apodized(lib, D_all, d_all, cellname_prefix+'_Xp'+str(round(xp0)), xp0, w_wg=w_wg)
+        if type_GC == 'line':
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+        if type_GC == 'FA':
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+        Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
+        pos_y += -space
+    posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
 def Mark_crossmark(lib, w=20, l=300, layer=1, datatype=1):
