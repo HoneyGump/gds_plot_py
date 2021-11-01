@@ -7,6 +7,9 @@ ld_grating = {"layer": 1, "datatype": 3}
 ld_heater = {"layer": 2, "datatype": 1}
 ld_wire = {"layer": 3, "datatype": 1}
 
+ld_wg = {"layer": 100, "datatype": 1}
+ld_cld = {"layer": 100, "datatype": 2}
+
 info_wg = {"w_wg":0.5, "w_etch": 3}
 
 def gc_rect(cell, pa, w_gc=12, w_wg=0.5, w_etch=3):
@@ -415,6 +418,58 @@ def convert_to_positive_resist(cell, parts, buffer_radius=3):
     cut = gdspy.boolean(poly1, poly2, 'or')
     diff = gdspy.boolean(diff, cut, 'not', layer=1, datatype=1)
     cell.add(diff)
+    return cell
+
+def convert_to_positive_resist2(cell, parts, buffer_radius=3):
+    w_cut = 15
+    l_cut= 15
+    outer = gdspy.offset(parts, buffer_radius, join_first=True)
+
+    x_max = 1
+    x_min = 0
+    if isinstance(parts,list):
+        for onePart in parts:
+            [[x_min_temp, __], [x_max_temp, __]] = onePart.get_bounding_box()
+            if x_max_temp > x_max:
+                x_max = x_max_temp
+            if x_min_temp < x_min:
+                x_min = x_min_temp
+    else:
+        [[x_min, __], [x_max, __]] = parts.get_bounding_box()
+    points = [(x_min, w_cut), (x_min, -w_cut), (x_min-l_cut, -w_cut), (x_min-l_cut, w_cut)]
+    poly1 = gdspy.Polygon(points)
+    points = [(x_max, w_cut), (x_max, -w_cut), (x_max+l_cut, -w_cut), (x_max+l_cut, w_cut)]
+    poly2= gdspy.Polygon(points)
+    cut = gdspy.boolean(poly1, poly2, 'or')
+    outer2 = gdspy.boolean(outer, cut, 'not', **ld_cld)
+    diff = gdspy.boolean(outer2, parts, 'not', **ld_fulletch)
+    cell.add(outer2)
+    cell.add(diff)
+    return cell
+
+def buffer(parts, buffer_radius=3):
+    w_cut = 15
+    l_cut= 15
+    outer = gdspy.offset(parts, buffer_radius, join_first=True)
+
+    x_max = 1
+    x_min = 0
+    if isinstance(parts,list):
+        for onePart in parts:
+            [[x_min_temp, __], [x_max_temp, __]] = onePart.get_bounding_box()
+            if x_max_temp > x_max:
+                x_max = x_max_temp
+            if x_min_temp < x_min:
+                x_min = x_min_temp
+    else:
+        [[x_min, __], [x_max, __]] = parts.get_bounding_box()
+    points = [(x_min, w_cut), (x_min, -w_cut), (x_min-l_cut, -w_cut), (x_min-l_cut, w_cut)]
+    poly1 = gdspy.Polygon(points)
+    points = [(x_max, w_cut), (x_max, -w_cut), (x_max+l_cut, -w_cut), (x_max+l_cut, w_cut)]
+    poly2= gdspy.Polygon(points)
+    cut = gdspy.boolean(poly1, poly2, 'or')
+    outer2 = gdspy.boolean(outer, cut, 'not', **ld_cld)
+    return outer2
 
 def Scan_d(lib, Cell, D, d, cellname_prefix='UGC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, type_GC='line'):
     temp_d =  np.linspace(d-step*n[0], d+step*n[1], n[0]+n[1]+1)
@@ -606,7 +661,7 @@ def Path2WG(pts, w_wg, w_cld, layer, datatype):
     return path
 
 # define  heater
-def gene_heater(lib, cellName='Heater', w_heater=3, l_heater=200, w_CT=10, w_wire=20, w_wg=0.5, w_etch=3):
+def gene_heater(lib, cellName='Heater', w_heater=3, l_heater=200, w_CT=10, w_wire=20, w_wg=0.5, w_etch=3, type_layout='positive'):
     # l_heater2 = l_heater - 100
     # w_heater = 3
     # w_CT = 10
@@ -630,11 +685,14 @@ def gene_heater(lib, cellName='Heater', w_heater=3, l_heater=200, w_CT=10, w_wir
     heater = gdspy.Rectangle((l_port+l_heater-w_wire/2, w_wire/2), (l_port+l_heater+w_wire/2, -w_wire/2), **ld_wire)
     cell.add(heater)
     # add WG
-    Rect = gdspy.Rectangle((0, w_wg/2+w_etch), (l_Heater, w_wg/2), **ld_fulletch)
-    cell.add(Rect)
-    Rect = gdspy.Rectangle((0, -w_wg/2), (l_Heater, -w_wg/2-w_etch), **ld_fulletch)
-    cell.add(Rect)
-
+    if type_layout == 'negative':
+        Rect = gdspy.Rectangle((0, w_wg/2+w_etch), (l_Heater, w_wg/2), **ld_fulletch)
+        cell.add(Rect)
+        Rect = gdspy.Rectangle((0, -w_wg/2), (l_Heater, -w_wg/2-w_etch), **ld_fulletch)
+        cell.add(Rect)
+    if type_layout == 'positive':
+        cell.add(wg_line(w_wg, l_Heater, w_etch=w_etch, type_layout='positive'))
+        cell.add(buffer(wg_line(w_wg, l_Heater, w_etch=w_etch, type_layout='positive')))
     return cell
 
 class Ring_4port(object):
@@ -738,93 +796,69 @@ def MZM_DC(lib, cell_Heater, cell_DC, cellName='MZM_DC', w_wg=0.5, N=2, w_etch_D
     return cell
 
 # define the Waveguide
-def wg_line(w_wg, l_wg, origin=(0,0), w_etch=3, type_layout='negtive'):
+def wg_line(w_wg, l_wg, origin=(0,0), w_etch=3, type_layout='negative'):
     # add WG
-    if type_layout == 'negtive':
+    if type_layout == 'negative':
         Rect1 = gdspy.Rectangle((origin[0], origin[1]+w_wg/2+w_etch), (origin[0]+l_wg, origin[1]+w_wg/2), **ld_fulletch)
         Rect2 = gdspy.Rectangle((origin[0], origin[1]-w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2-w_etch), **ld_fulletch)
         return [Rect1, Rect2]
     else:
-        Rect = gdspy.Rectangle((origin[0], origin[1]+w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2), **ld_fulletch)
-        return Rect
+        Rect1 = gdspy.Rectangle((origin[0], origin[1]+w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2), **ld_wg)
+        return Rect1
+    
 
-# define the 1X2 MMI
-def MMI1X2(lib, cellName='MMI1X2', w_core=9, l_core=97, pos_taper=1.5, w_taper1=2.7, l_taper1=26, w_taper2=2.7, l_taper2=27, w_wg=0.5, type_layout='negtive'):
+# define the 2X2 MMI or 1X2 MMI
+def MMI(lib, cellName='MMI2X2', w_core=9, l_core=97, pos_taper=1.5, w_taper1=2.7, l_taper1=26, w_taper2=2.7, l_taper2=27, w_wg=0.5, type_layout='positive'):
     l_port = 5
     cell = lib.new_cell(cellName)
-    # left taper up
-    origin = (0, 0)
-    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
-    origin = (origin[0]+l_port, origin[1])
-    pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
-    cell.add(poly)
+    if cellName == 'MMI2X2':
+        # left taper up
+        origin = (0, pos_taper)
+        cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+        origin = (origin[0]+l_port, origin[1])
+        pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
+        poly = gdspy.Polygon(pts, **ld_wg)
+        cell.add(poly)
+        # left taper down
+        origin = (0, -pos_taper)
+        cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+        origin = (origin[0]+l_port, origin[1])
+        pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
+        poly = gdspy.Polygon(pts, **ld_wg)
+        cell.add(poly)
+    if cellName == 'MMI1X2':
+        # left taper
+        origin = (0, 0)
+        cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+        origin = (origin[0]+l_port, origin[1])
+        pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
+        poly = gdspy.Polygon(pts, **ld_wg)
+        cell.add(poly)
+
     # core
     origin = (l_port+l_taper1, 0)
-    cell.add(gdspy.Rectangle((origin[0], origin[1]+w_core/2), (origin[0]+l_core, origin[1]-w_core/2), **ld_fulletch))
+    cell.add(gdspy.Rectangle((origin[0], origin[1]+w_core/2), (origin[0]+l_core, origin[1]-w_core/2), **ld_wg))
     # right taper up
     origin = (origin[0]+l_core, origin[1]+pos_taper)
     pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
+    poly = gdspy.Polygon(pts, **ld_wg)
     cell.add(poly)
     origin = (origin[0]+l_taper2, origin[1])
     cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
     # right taper down
     origin = (l_port+l_taper1+l_core, -pos_taper)
     pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
+    poly = gdspy.Polygon(pts, **ld_wg)
     cell.add(poly)
     origin = (origin[0]+l_taper2, origin[1])
     cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
-    if type_layout == 'negtive':
+    if type_layout == 'negative':
         cell2 = lib.new_cell(cellName+'_')
         cell2 = convert_to_positive_resist(cell2, cell)
         lib.remove(cell)
         return cell2
-    else:
-        return cell
-
-# define the 2X2 MMI
-def MMI2X2(lib, cellName='MMI2X2', w_core=9, l_core=97, pos_taper=1.5, w_taper1=2.7, l_taper1=26, w_taper2=2.7, l_taper2=27, w_wg=0.5, type_layout='negtive'):
-    l_port = 5
-    cell = lib.new_cell(cellName)
-    # left taper up
-    origin = (0, pos_taper)
-    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
-    origin = (origin[0]+l_port, origin[1])
-    pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
-    cell.add(poly)
-    # left taper down
-    origin = (0, -pos_taper)
-    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
-    origin = (origin[0]+l_port, origin[1])
-    pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
-    cell.add(poly)
-    # core
-    origin = (l_port+l_taper1, 0)
-    cell.add(gdspy.Rectangle((origin[0], origin[1]+w_core/2), (origin[0]+l_core, origin[1]-w_core/2), **ld_fulletch))
-    # right taper up
-    origin = (origin[0]+l_core, origin[1]+pos_taper)
-    pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
-    cell.add(poly)
-    origin = (origin[0]+l_taper2, origin[1])
-    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
-    # right taper down
-    origin = (l_port+l_taper1+l_core, -pos_taper)
-    pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
-    poly = gdspy.Polygon(pts, **ld_fulletch)
-    cell.add(poly)
-    origin = (origin[0]+l_taper2, origin[1])
-    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
-    if type_layout == 'negtive':
-        cell2 = lib.new_cell(cellName+'_')
-        cell2 = convert_to_positive_resist(cell2, cell)
-        lib.remove(cell)
-        return cell2
-    else:
+    if type_layout == 'positive':
+        cell.add(buffer(cell))
         return cell
 
 # define the MZM based on MMI
@@ -832,10 +866,222 @@ def MZM_MMI(w_taper1, ltaper1, w_taper2, l_taper2):
 
     pass
 
+def connect_zShape_(pos_start, pos_end, len_port=5, w=0.5, radius=10, layer=1, datatype=1):
+    # Path defined by a sequence of points and stored as a GDSII path
+    path = gdspy.FlexPath(
+            [pos_start, (pos_start[0]+len_port+radius, pos_start[1]), (pos_start[0]+len_port+radius, pos_end[1]), pos_end], w, 0, ends="flush",
+             layer=layer, datatype=datatype, bend_radius=radius, corners='circular bend', tolerance=0.001
+    )
+    return path
+
+def connect_zShape(cell, pos_start, pos_end, len_port=5, w_wg=0.5, w_etch=3, radius=10, type_layout='positive'):
+    path1 = connect_zShape_(pos_start, pos_end, len_port, w_wg, radius=radius, **ld_wg)
+    path2 = connect_zShape_(pos_start, pos_end, len_port, w_wg+2*w_etch, radius=radius, **ld_cld)
+    if type_layout=='positive':
+        cell.add([path1, path2])
+    if type_layout=='negative':
+        cell.add(gdspy.boolean(path2, path1, 'xor', **ld_fulletch))
+    return cell
+
+def get_length(cell):
+    bc = cell.get_bounding_box()
+    l = bc[1][0] - bc[0][0]
+    return l
+
+# splitter 
+def Splitter_12(lib, heater, mmi_12, mmi_22,  pos_y_heater=300, pos_taper_mmi_12=1.5, pos_taper_mmi_22=1.5, w_wg=0.5, w_etch=3, radius=10, len_port_ext=5):
+    Splitter_1X2 = lib.new_cell('Splitter_1X2')
+
+    len_heater = get_length(heater)
+    len_mmi_12 = get_length(mmi_12)
+    len_mmi_22 = get_length(mmi_22)
+    out_1_mmi_22 = pos_taper_mmi_22
+    out_2_mmi_22 = -out_1_mmi_22
+    in_1_mmi_22 = out_1_mmi_22
+    in_2_mmi_22 = out_2_mmi_22
+    
+    pos_x = 0 
+    ## MMI 1X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_12))
+    pos_x = len_mmi_12
+    # wg
+    connect_zShape(Splitter_1X2, (pos_x, pos_taper_mmi_12), (pos_x+2*radius+len_port_ext*2, pos_y_heater))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_taper_mmi_12), (pos_x+2*radius+len_port_ext*2+len_heater, -pos_y_heater))
+    # next
+    pos_y = pos_y_heater
+    pos_x += radius*2 + len_port_ext*2
+
+    ## add  1st heater
+    Splitter_1X2.add(gdspy.CellReference(heater, (pos_x, pos_y)))
+    pos_x += len_heater
+    # wg 
+    connect_zShape(Splitter_1X2, (pos_x, pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_1_mmi_22))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_2_mmi_22))
+    # next
+    pos_x += radius*2 + len_port_ext*2
+
+    # ## the 2st MMI 2X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_22, (pos_x, 0)))
+    pos_x += len_mmi_22
+    connect_zShape(Splitter_1X2, (pos_x, out_1_mmi_22), (pos_x+2*radius+len_port_ext*2, pos_y_heater))
+    connect_zShape(Splitter_1X2, (pos_x, out_2_mmi_22), (pos_x+2*radius+len_port_ext*2+len_heater, -pos_y_heater))
+    # # next
+    pos_y = pos_y_heater
+    pos_x += radius*2 + len_port_ext*2
+
+    # ## add  2st heater
+    Splitter_1X2.add(gdspy.CellReference(heater, (pos_x, pos_y)))
+    pos_x += len_heater
+    # # wg
+    connect_zShape(Splitter_1X2, (pos_x, pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_1_mmi_22))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_2_mmi_22))
+    # # # next
+    pos_x += radius*2 + len_port_ext*2
+
+    # # the 3st MMI 2X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_22, (pos_x, 0)))
+
+    # add commom GND
+    # x_1 = len_mmi_22 + len_heater + (radius+len_port_ext)*2 - 15
+    # len_GND = (radius+len_port_ext)*4 + len_mmi_22 + 31
+    # path = gdspy.FlexPath([(x_1, pos_y_heater), (x_1+len_GND, pos_y_heater)], w_Al, 0, gdsii_path=True, **ld_wire)
+    # Splitter_1X2.add(path)
+    # x_1 =len_mmi_22 + len_heater + (radius+len_port_ext)*4 + len_mmi_22/2
+    # path = gdspy.FlexPath([(x_1, pos_y_heater-80), (x_1, pos_y_heater+80)], 150, 0,  gdsii_path=True, **ld_wire)
+    # Splitter_1X2.add(path)
+
+    return Splitter_1X2
+
+# splitter 
+def Splitter_12_3Layers(lib, heater, mmi_12, mmi_22,  pos_y_heater=300, pos_taper_mmi_12=1.5, pos_taper_mmi_22=1.5, w_wg=0.5, w_etch=3, radius=10, len_port_ext=5):
+    Splitter_1X2 = lib.new_cell('Splitter_1X2')
+
+    len_heater = get_length(heater)
+    len_mmi_12 = get_length(mmi_12)
+    len_mmi_22 = get_length(mmi_22)
+    out_1_mmi_22 = pos_taper_mmi_22
+    out_2_mmi_22 = -out_1_mmi_22
+    in_1_mmi_22 = out_1_mmi_22
+    in_2_mmi_22 = out_2_mmi_22
+    
+    pos_x = 0 
+    ## MMI 1X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_12))
+    pos_x = len_mmi_12
+    # wg
+    connect_zShape(Splitter_1X2, (pos_x, pos_taper_mmi_12), (pos_x+2*radius+len_port_ext*2, pos_y_heater))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_taper_mmi_12), (pos_x+2*radius+len_port_ext*2+len_heater, -pos_y_heater))
+    # next
+    pos_y = pos_y_heater
+    pos_x += radius*2 + len_port_ext*2
+
+    ## add  1st heater
+    Splitter_1X2.add(gdspy.CellReference(heater, (pos_x, pos_y)))
+    pos_x += len_heater
+    # wg 
+    connect_zShape(Splitter_1X2, (pos_x, pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_1_mmi_22))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_2_mmi_22))
+    # next
+    pos_x += radius*2 + len_port_ext*2
+
+    # ## the 2st MMI 2X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_22, (pos_x, 0)))
+    pos_x += len_mmi_22
+    connect_zShape(Splitter_1X2, (pos_x, out_1_mmi_22), (pos_x+2*radius+len_port_ext*2, pos_y_heater))
+    connect_zShape(Splitter_1X2, (pos_x, out_2_mmi_22), (pos_x+2*radius+len_port_ext*2+len_heater, -pos_y_heater))
+    # # next
+    pos_y = pos_y_heater
+    pos_x += radius*2 + len_port_ext*2
+
+    # ## add  2st heater
+    Splitter_1X2.add(gdspy.CellReference(heater, (pos_x, pos_y)))
+    pos_x += len_heater
+    # # wg
+    connect_zShape(Splitter_1X2, (pos_x, pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_1_mmi_22))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_2_mmi_22))
+    # # # next
+    pos_x += radius*2 + len_port_ext*2
+
+    # # the 3st MMI 2X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_22, (pos_x, 0)))
+    pos_x += len_mmi_22
+    connect_zShape(Splitter_1X2, (pos_x, out_1_mmi_22), (pos_x+2*radius+len_port_ext*2, pos_y_heater))
+    connect_zShape(Splitter_1X2, (pos_x, out_2_mmi_22), (pos_x+2*radius+len_port_ext*2+len_heater, -pos_y_heater))
+    # # next
+    pos_y = pos_y_heater
+    pos_x += radius*2 + len_port_ext*2
+
+    # ## add  3st heater
+    Splitter_1X2.add(gdspy.CellReference(heater, (pos_x, pos_y)))
+    pos_x += len_heater
+    # # wg
+    connect_zShape(Splitter_1X2, (pos_x, pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_1_mmi_22))
+    connect_zShape(Splitter_1X2, (pos_x, -pos_y_heater), (pos_x+2*radius+len_port_ext*2, in_2_mmi_22))
+    # # # next
+    pos_x += radius*2 + len_port_ext*2
+
+    # # the 4st MMI 2X2
+    Splitter_1X2.add(gdspy.CellReference(mmi_22, (pos_x, 0)))
+
+
+    # add commom GND
+    # x_1 = len_mmi_22 + len_heater + (radius+len_port_ext)*2 - 15
+    # len_GND = (radius+len_port_ext)*4 + len_mmi_22 + 31
+    # path = gdspy.FlexPath([(x_1, pos_y_heater), (x_1+len_GND, pos_y_heater)], w_Al, 0, gdsii_path=True, **ld_wire)
+    # Splitter_1X2.add(path)
+    # x_1 =len_mmi_22 + len_heater + (radius+len_port_ext)*4 + len_mmi_22/2
+    # path = gdspy.FlexPath([(x_1, pos_y_heater-80), (x_1, pos_y_heater+80)], 150, 0,  gdsii_path=True, **ld_wire)
+    # Splitter_1X2.add(path)
+
+    return Splitter_1X2
+
+def Splitter_tree(lib, num, heater, mmi_12, mmi_22,  pos_y_heater=150, pos_taper_mmi_12=1.5, pos_taper_mmi_22=1.5, w_wg=0.5, w_etch=3, radius=10, len_port_ext=5):
+    
+    Splitter_1X2 = Splitter_12_3Layers(lib, heater, mmi_12, mmi_22,  pos_y_heater, pos_taper_mmi_12, pos_taper_mmi_22, w_wg, w_etch, radius, len_port_ext)
+    
+    out_1_mmi_22 = pos_taper_mmi_22
+    out_2_mmi_22 = -out_1_mmi_22
+
+    ## define the splitter tree
+    pos_x = 0
+    pos_y = 0
+    position_all = []
+    len_splitter_1X2 = get_length(Splitter_1X2)
+    ST = lib.new_cell('Splitter_tree')
+    N = int(np.floor(np.log2(num)))
+    space_y = 4*pos_y_heater
+    space_x = len_splitter_1X2 + 2*(radius + len_port_ext)
+    
+    for i in range(N):
+        pos_x = i*space_x
+        for j in range(2**i):
+            pos_y = (-(2**i-1)/2*2**(N-1-i) + 2**(N-1-i)*j) * space_y
+            ST.add(gdspy.CellReference(Splitter_1X2, (pos_x, pos_y)))
+            position_all.append((pos_x, pos_y))
+            if i < N:
+                # # wg
+                connect_zShape(ST, (pos_x+len_splitter_1X2, pos_y+out_1_mmi_22), (pos_x+len_splitter_1X2+2*radius+len_port_ext*2, pos_y+2**(N-2-i)*space_y/2))
+                connect_zShape(ST, (pos_x+len_splitter_1X2, pos_y+out_2_mmi_22), (pos_x+len_splitter_1X2+2*radius+len_port_ext*2, pos_y-2**(N-2-i)*space_y/2))
+    return ST, position_all
+
+__name__ = 'test_splitterTree'
+
 if __name__ == '__main__':
     lib = gdspy.GdsLibrary( precision=1e-10)
-    MMI1X2(lib)
+    MMI(lib)
     gdspy.LayoutViewer()
     # name_gds = "test_MZM_DC.gds"
     # lib.write_gds(name_gds)
     # print(name_gds)
+
+if __name__ == 'test_splitterTree':
+    lib = gdspy.GdsLibrary( precision=1e-10)
+    mmi_12 = MMI(lib, 'MMI1X2')
+    mmi_22 = MMI(lib)
+    heater = gene_heater(lib)
+    # Splitter_12(lib, heater=heater, mmi_12=mmi_12, mmi_22=mmi_22)
+    Splitter_tree(lib, 8, heater=heater, mmi_12=mmi_12, mmi_22=mmi_22, pos_y_heater=127)
+    gdspy.LayoutViewer()
+    name_gds = "test_ST.gds"
+    lib.write_gds(name_gds)
+    print(name_gds)
