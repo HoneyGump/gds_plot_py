@@ -738,21 +738,103 @@ def MZM_DC(lib, cell_Heater, cell_DC, cellName='MZM_DC', w_wg=0.5, N=2, w_etch_D
     return cell
 
 # define the Waveguide
-def wg_line(w_wg, w_etch, origin, l_wg):
+def wg_line(w_wg, l_wg, origin=(0,0), w_etch=3, type_layout='negtive'):
     # add WG
-    Rect1 = gdspy.Rectangle((origin[0], origin[1]+w_wg/2+w_etch), (origin[0]+l_wg, origin[1]+w_wg/2), **ld_fulletch)
-    Rect2 = gdspy.Rectangle((origin[0], origin[1]-w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2-w_etch), **ld_fulletch)
-    return [Rect1, Rect2]
+    if type_layout == 'negtive':
+        Rect1 = gdspy.Rectangle((origin[0], origin[1]+w_wg/2+w_etch), (origin[0]+l_wg, origin[1]+w_wg/2), **ld_fulletch)
+        Rect2 = gdspy.Rectangle((origin[0], origin[1]-w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2-w_etch), **ld_fulletch)
+        return [Rect1, Rect2]
+    else:
+        Rect = gdspy.Rectangle((origin[0], origin[1]+w_wg/2), (origin[0]+l_wg, origin[1]-w_wg/2), **ld_fulletch)
+        return Rect
+
+# define the 1X2 MMI
+def MMI1X2(lib, cellName='MMI1X2', w_core=9, l_core=97, pos_taper=1.5, w_taper1=2.7, l_taper1=26, w_taper2=2.7, l_taper2=27, w_wg=0.5, type_layout='negtive'):
+    l_port = 5
+    cell = lib.new_cell(cellName)
+    # left taper up
+    origin = (0, 0)
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    origin = (origin[0]+l_port, origin[1])
+    pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    # core
+    origin = (l_port+l_taper1, 0)
+    cell.add(gdspy.Rectangle((origin[0], origin[1]+w_core/2), (origin[0]+l_core, origin[1]-w_core/2), **ld_fulletch))
+    # right taper up
+    origin = (origin[0]+l_core, origin[1]+pos_taper)
+    pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    origin = (origin[0]+l_taper2, origin[1])
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    # right taper down
+    origin = (l_port+l_taper1+l_core, -pos_taper)
+    pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    origin = (origin[0]+l_taper2, origin[1])
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    if type_layout == 'negtive':
+        cell2 = lib.new_cell(cellName+'_')
+        cell2 = convert_to_positive_resist(cell2, cell)
+        lib.remove(cell)
+        return cell2
+    else:
+        return cell
+
+# define the 2X2 MMI
+def MMI2X2(lib, cellName='MMI2X2', w_core=9, l_core=97, pos_taper=1.5, w_taper1=2.7, l_taper1=26, w_taper2=2.7, l_taper2=27, w_wg=0.5, type_layout='negtive'):
+    l_port = 5
+    cell = lib.new_cell(cellName)
+    # left taper up
+    origin = (0, pos_taper)
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    origin = (origin[0]+l_port, origin[1])
+    pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    # left taper down
+    origin = (0, -pos_taper)
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    origin = (origin[0]+l_port, origin[1])
+    pts = [(origin[0], origin[1]+w_wg/2), (origin[0]+l_taper1, origin[1]+w_taper1/2), (origin[0]+l_taper1, origin[1]-w_taper1/2), (origin[0], origin[1]-w_wg/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    # core
+    origin = (l_port+l_taper1, 0)
+    cell.add(gdspy.Rectangle((origin[0], origin[1]+w_core/2), (origin[0]+l_core, origin[1]-w_core/2), **ld_fulletch))
+    # right taper up
+    origin = (origin[0]+l_core, origin[1]+pos_taper)
+    pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    origin = (origin[0]+l_taper2, origin[1])
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    # right taper down
+    origin = (l_port+l_taper1+l_core, -pos_taper)
+    pts = [(origin[0], origin[1]+w_taper2/2), (origin[0]+l_taper2, origin[1]+w_wg/2), (origin[0]+l_taper2, origin[1]-w_wg/2), (origin[0], origin[1]-w_taper2/2)]
+    poly = gdspy.Polygon(pts, **ld_fulletch)
+    cell.add(poly)
+    origin = (origin[0]+l_taper2, origin[1])
+    cell.add(wg_line(w_wg, l_port, origin=origin, type_layout='positive'))
+    if type_layout == 'negtive':
+        cell2 = lib.new_cell(cellName+'_')
+        cell2 = convert_to_positive_resist(cell2, cell)
+        lib.remove(cell)
+        return cell2
+    else:
+        return cell
 
 # define the MZM based on MMI
-def MZM_MMI():
+def MZM_MMI(w_taper1, ltaper1, w_taper2, l_taper2):
+
     pass
 
 if __name__ == '__main__':
     lib = gdspy.GdsLibrary( precision=1e-10)
-    cell_DC = DC2(lib, 'Ring', w_wg=0.5)
-    cell_Heater = gene_heater(lib, 'Heater')
-    MZM_DC(lib, cell_Heater, cell_DC)
+    MMI1X2(lib)
     gdspy.LayoutViewer()
     # name_gds = "test_MZM_DC.gds"
     # lib.write_gds(name_gds)
