@@ -9,7 +9,7 @@ ld_wire = {"layer": 3, "datatype": 1}
 
 info_wg = {"w_wg":0.5, "w_etch": 3}
 
-def gc_rect(cell, pa, w_gc=10, w_wg=0.5, w_etch=3):
+def gc_rect(cell, pa, w_gc=12, w_wg=0.5, w_etch=3):
     """
     cell: cell in Gdspy \n
     pa: parameters for grating coupler \n
@@ -40,7 +40,7 @@ def gc_rect(cell, pa, w_gc=10, w_wg=0.5, w_etch=3):
     cell.add(poly)
     return cell
 
-def gc_focusing(lib, cellname, pa, xp=22, theta=25, w_gc=10, w_wg=0.5, w_etch=3):
+def gc_focusing(lib, cellname, pa, xp=22, theta=25, w_wg=0.5, w_etch=3):
     """
     cell: cell in Gdspy \n
     pa: parameters for grating coupler \n
@@ -149,7 +149,7 @@ def gc_focusing_PC(lib, filename0 ="GC", xp=14, theta=25, a=0.23, D=0.150, d=0.6
     grating.add(poly)
     return grating
 
-def gc_focusing_PC_apodized(lib, D_all, d_all, filename0 ="FAGC", xp=14, theta=25, a=0.23, period_num=29, w_wg=0.5, w_etch=3):
+def gc_focusing_PC_apodized(lib, D_all, d_all, filename0 ="FAGC", xp=14, theta=25, a=0.23, period_num=29, D_max=0.18, w_wg=0.5, w_etch=3):
     """
     cell: cell in Gdspy \n
     pa: parameters for grating coupler \n
@@ -162,8 +162,6 @@ def gc_focusing_PC_apodized(lib, D_all, d_all, filename0 ="FAGC", xp=14, theta=2
     # xp is the length of taper
     GC_theta = (theta+3)/180*np.pi
     GC_theta2 = theta/180*np.pi
-    i = 0
-    D_hole = 0.165
     a_hole = a
 
     # create the main body of phtonic crystal grating coupler
@@ -182,6 +180,8 @@ def gc_focusing_PC_apodized(lib, D_all, d_all, filename0 ="FAGC", xp=14, theta=2
         
         # create the cell for reference
         D_temp = D_all[ii]
+        if D_temp > D_max:
+            D_temp = D_max
         name_cell = "D"+str(int(D_temp*1e3))
         if name_cell not in lib.cells:
             circles = lib.new_cell(name_cell)
@@ -216,7 +216,7 @@ def gc_focusing_PC_apodized(lib, D_all, d_all, filename0 ="FAGC", xp=14, theta=2
     grating.add(poly)
     return grating
 
-def gc_FA(cell, gc, origin=(0,0), w_gc=10, w_wg=0.5, w_etch=3):
+def gc_FA(cell, gc, origin=(0,0), w_wg=0.5, w_etch=3):
     cell.add(gdspy.CellReference(gc, origin))
     cell.add(gdspy.CellReference(gc, (origin[0],-127)))
     
@@ -229,7 +229,7 @@ def gc_FA(cell, gc, origin=(0,0), w_gc=10, w_wg=0.5, w_etch=3):
     path_connect.turn(10, "r")
     path_connect.segment(l_portOut)
 
-    path_connect2 = gdspy.Path(w_wg+6)
+    path_connect2 = gdspy.Path(w_wg+w_etch*2)
     path_connect2.segment(l_portIn)
     path_connect2.turn(10, "r")
     path_connect2.segment(107)
@@ -240,7 +240,7 @@ def gc_FA(cell, gc, origin=(0,0), w_gc=10, w_wg=0.5, w_etch=3):
     cell.add(path_connect_positive)
     return cell
 
-def gc_line(cell, gc, origin=(0,0), l=200, w_gc=10, w_wg=0.5, w_etch=3):
+def gc_line(cell, gc, origin=(0,0), l=200, w_wg=0.5, w_etch=3):
     """
     cell: cell in Gdspy \n
     
@@ -252,13 +252,13 @@ def gc_line(cell, gc, origin=(0,0), l=200, w_gc=10, w_wg=0.5, w_etch=3):
     cell.add(gdspy.CellReference(gc, (l+origin[0], origin[1]), rotation=180))
     path_connect = gdspy.Path(w_wg)
     path_connect.segment(l)
-    path_connect2 = gdspy.Path(w_wg+6)
+    path_connect2 = gdspy.Path(w_wg+w_etch*2)
     path_connect2.segment(l)
     path_connect_positive = gdspy.boolean(path_connect, path_connect2,'xor',layer=1, datatype=1)
     cell.add(path_connect_positive)
     return cell
 
-def generator_parameters(pitch, ff, num_pitch, w_gc=10, w_wg=0.5, w_etch=3):
+def generator_parameters(pitch, ff, num_pitch):
     pa = [0]*num_pitch*2
     for i in range(num_pitch):
         pa[2*i] = round(pitch*(1-ff), 3)
@@ -273,7 +273,7 @@ def readParameters(filename):
     data.append(data[-1])
     return data
 
-def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_grating=30, w_gc=10, w_wg=0.5, w_etch=3, D_max=0.18):
+def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_grating=30, w_gc=12, w_wg=0.5, w_etch=3, D_max=0.18):
     a = 0.23
     w_gc = w_gc
     num_y = np.floor(w_gc/(a*np.sqrt(3)))
@@ -318,7 +318,7 @@ def gc_PC_apodized(lib, filename0, D, d_goal, period_num=29, l_taper_a=500, l_gr
     grating.add(poly)
     return grating
 
-def gc_PC_uniform(lib, filename0 ="UGC", a=0.23, D=0.150, d=0.665, period_num=29, w_gc=10, l_taper_a=500, l_grating=30, w_wg=0.5, w_etch=3 ):
+def gc_PC_uniform(lib, filename0 ="UGC", a=0.23, D=0.150, d=0.665, period_num=29, w_gc=12, l_taper_a=500, l_grating=30, w_wg=0.5, w_etch=3 ):
     """ a is the length of the lattice \n
         D is the diameter of the hole \n
         d is the peorid of the gratings.
@@ -416,21 +416,21 @@ def convert_to_positive_resist(cell, parts, buffer_radius=3):
     diff = gdspy.boolean(diff, cut, 'not', layer=1, datatype=1)
     cell.add(diff)
 
-def Scan_d(lib, Cell, D, d, cellname_prefix='UGC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_d(lib, Cell, D, d, cellname_prefix='UGC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, type_GC='line'):
     temp_d =  np.linspace(d-step*n[0], d+step*n[1], n[0]+n[1]+1)
     pos_y = 0
     for d in temp_d:
         cell = gc_PC_uniform(lib,filename0=cellname_prefix, D=D, d=d, w_wg=w_wg, w_gc=w_gc)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_trench(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_trench(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, type_GC='line'):
     temp_complement = offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = np.array(para)
@@ -449,15 +449,15 @@ def Scan_trench(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_sca
         cell=GC_rect_Apodized_Air
         gc_rect(GC_rect_Apodized_Air, temp_para, w_wg=w_wg,  w_gc=w_gc)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), GC_rect_Apodized_Air, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), GC_rect_Apodized_Air, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), GC_rect_Apodized_Air, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), GC_rect_Apodized_Air, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_tooth(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_tooth(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, type_GC='line'):
     temp_complement =  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = np.array(para)
@@ -474,15 +474,15 @@ def Scan_tooth(lib, Cell, para, cellname_prefix='AGC_R', step=0.005, offset_scan
         cell = GC_rect_Apodized_Air
         gc_rect(GC_rect_Apodized_Air, temp_para, w_wg=w_wg,  w_gc=w_gc)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), GC_rect_Apodized_Air, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), GC_rect_Apodized_Air, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), GC_rect_Apodized_Air, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), GC_rect_Apodized_Air, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='AGC_PC', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA'):
+def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='AGC_PC', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, type_GC='FA'):
     temp_complement=  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = d
@@ -492,15 +492,15 @@ def Scan_d_Apod(lib, Cell, D2, d, cellname_prefix='AGC_PC', step=0.005, offset_s
         # print(temp_para)
         cell = gc_PC_apodized(lib, cellname_prefix+'_d' + str(round(complement*1e3)), D2, temp_para, w_wg=w_wg,  w_gc=w_gc)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='AGC_PC', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='FA',D_max=0.18):
+def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='AGC_PC', step=0.005, offset_scan=0, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, type_GC='FA',D_max=0.18):
     temp_complement=  offset_scan + np.linspace(-step*n[0], step*n[1], n[0]+n[1]+1)
     pos_y = 0
     para = D
@@ -510,48 +510,48 @@ def Scan_D_Apod(lib, Cell, D, d, cellname_prefix='AGC_PC', step=0.005, offset_sc
         # print(temp_para)
         cell = gc_PC_apodized(lib, cellname_prefix+'_D' + str(int(round(complement*1e3))), temp_para, d, w_wg=w_wg,  w_gc=w_gc, D_max=D_max)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_ltaper_focu(lib, Cell, para, l_taper, cellname_prefix='GC_foucusing', step=1, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, w_etch=3):
+def Scan_ltaper_focu(lib, Cell, para, l_taper, cellname_prefix='GC_foucusing', step=1, n=(3,4), origin=(0,0), space=100, w_wg=0.5, w_gc=12, w_etch=3):
     temp_l_taper =  np.linspace(l_taper-step*n[0], l_taper+step*n[1], n[0]+n[1]+1)
     y_start = space
     for l in temp_l_taper:
         cell = gc_focusing(lib, cellname_prefix+'_lTaper'+str(round(l)), pa=para, xp=l, w_wg=w_wg,  w_gc=w_gc)
-        GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 1200, w_wg=w_wg,  w_gc=w_gc)
+        GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 1200, w_wg=w_wg, w_etch=w_etch)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]-500, origin[1]+space-y_start)))
         space += -100
     posi_end = (origin[0]+0, origin[1]+space-200)
     return posi_end
 
-def Scan_ltaper_UFocu(lib, Cell, D, d, xp, cellname_prefix='GC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_ltaper_UFocu(lib, Cell, D, d, xp, cellname_prefix='GC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5, type_GC='line'):
     temp =  np.linspace(xp-step*n[0], xp+step*n[1], n[0]+n[1]+1)
     pos_y = 0
     for xp0 in temp:
         cell = gc_focusing_PC(lib, cellname_prefix+'_Xp'+str(round(xp0)), xp0, D=D, d=d, w_wg=w_wg)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)
     return posi_end
 
-def Scan_ltaper_AFocu(lib, Cell, D_all, d_all, xp, cellname_prefix='FAGC_PC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5,  w_gc=10, type_GC='line'):
+def Scan_ltaper_AFocu(lib, Cell, D_all, d_all, xp, cellname_prefix='FAGC_PC', step=0.005, n=(3,4), origin=(0,0), space=100, w_wg=0.5, type_GC='line'):
     temp =  np.linspace(xp-step*n[0], xp+step*n[1], n[0]+n[1]+1)
     pos_y = 0
     for xp0 in temp:
         cell = gc_focusing_PC_apodized(lib, D_all, d_all, cellname_prefix+'_Xp'+str(round(xp0)), xp0, w_wg=w_wg)
         if type_GC == 'line':
-            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg, w_gc=w_gc) 
+            GC_line = gc_line(lib.new_cell(cell.name+"_Line"), cell, l = 200, w_wg=w_wg) 
         if type_GC == 'FA':
-            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg, w_gc=w_gc)
+            GC_line = gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=w_wg)
         Cell.add(gdspy.CellReference(GC_line, (origin[0]+0, origin[1]+pos_y)))
         pos_y += -space
     posi_end = (origin[0]+0, origin[1]+pos_y-200)

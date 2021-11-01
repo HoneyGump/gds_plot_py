@@ -35,11 +35,21 @@ temp = scio.loadmat(dir_file)
 D = temp['D']*1e6
 d = temp['d_goal']*1e6 
 cell = GC.gc_PC_apodized(lib, 'AGC_SiO2_H220_a230_d10', D, d+0.01, **kwargs)
-GC_line = GC.gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), **kwargs)
+GC_line = GC.gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=0.51)
 DEVICES.add(gdspy.CellArray(GC_line, 2, 1, (1500, 0),  (posi_end[0], posi_end[1])))
+posi_end = (posi_end[0], posi_end[1]-200)
+cell = GC.gc_PC_apodized(lib, 'AGC_SiO2_H220_a230_d10_W10', D, d+0.01, w_gc=10, w_wg=0.51)
+GC_line = GC.gc_line(lib.new_cell(cell.name+"_line"), cell, origin=(0,0), w_wg=0.51)
+DEVICES.add(gdspy.CellArray(GC_line, 2, 1, (1500, 0), posi_end))
+
 cell = GC.gc_PC_apodized(lib, 'AGC_SiO2_H220_a230_D-10', D-0.01, d, **kwargs)
-GC_line = GC.gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), **kwargs)
-DEVICES.add(gdspy.CellArray(GC_line, 2, 1, (1500, 0),  (posi_end[0], posi_end[1]-200)))
+posi_end = (posi_end[0], posi_end[1]-200)
+GC_line = GC.gc_FA(lib.new_cell(cell.name+"_FA"), cell, origin=(0,0), w_wg=0.51)
+DEVICES.add(gdspy.CellArray(GC_line, 2, 1, (1500, 0), posi_end))
+posi_end = (posi_end[0], posi_end[1]-200)
+cell = GC.gc_PC_apodized(lib, 'AGC_SiO2_H220_a230_D-10_W10', D-0.01, d, w_gc=10, w_wg=0.51)
+GC_line = GC.gc_line(lib.new_cell(cell.name+"_line"), cell, origin=(0,0), w_wg=0.51)
+DEVICES.add(gdspy.CellArray(GC_line, 2, 1, (1500, 0), posi_end))
 
 # add FUGC
 posi_end = (1500+800, -800)
